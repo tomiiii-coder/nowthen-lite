@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>NowThen Lite</title>
+  <style>
+    body {
+      font-family: 'Helvetica Neue', sans-serif;
+      background-color: #f5f5f5;
+      padding: 20px;
+      margin: 0;
+    }
+
+    button {
+      margin: 4px;
+      padding: 6px 12px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    .task-item {
+      display: inline-flex;
+      align-items: center;
+      margin-right: 8px;
+    }
+
+    .delete-btn {
+      background: none;
+      border: none;
+      color: red;
+      font-weight: bold;
+      cursor: pointer;
+      margin-left: 4px;
+    }
+
+    #container {
+      max-width: 700px;
+      margin: 40px auto;
+      padding: 24px;
+      background-color: #fff;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    #dateNav {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+      font-size: 16px;
+    }
+
+    #dateLabel {
+      font-weight: bold;
+      font-size: 18px;
+    }
+
+    #taskInputRow {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 10px 0;
+    }
+
+    #newTask {
+      width: 160px;
+      padding: 6px;
+    }
+
+    #taskColor {
+      width: 40px;
+      height: 40px;
+      padding: 0;
+      border: none;
+      background: none;
+    }
+
+    #currentTask {
+      font-size: 14px;
+      margin-bottom: 6px;
+    }
+
+    #logNote {
+      width: 100%;
+      height: 60px;
+      margin: 4px 0 16px;
+      padding: 6px;
+      font-size: 13px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+    }
+
+    table.simple-table {
+      width: 100%;
+      font-family: sans-serif;
+      font-size: 13px;
+      border-collapse: collapse;
+      line-height: 1.4;
+      margin: 0;
+      padding: 0;
+    }
+
+    table.simple-table td {
+      padding: 2px 4px 6px;
+      vertical-align: top;
+    }
+
+    #log {
+      margin: 0;
+      padding: 0;
+    }
+
+    #timelineContainer {
+      display: flex;
+      height: 1440px;
+      border-top: 1px solid #ccc;
+      margin-bottom: 24px;
+    }
+
+    #timeAxis {
+      width: 60px;
+      border-right: 1px solid #ccc;
+    }
+
+    #taskTimeline {
+      flex: 1;
+      position: relative;
+    }
+
+    #summary table {
+      border-collapse: collapse;
+      font-size: 14px;
+      line-height: 1.4;
+    }
+
+    #summary td {
+      padding: 2px 6px;
+    }
+
+    canvas#barChart {
+      width: 100%;
+      max-width: 600px;
+      height: 200px;
+    }
+  </style>
+</head>
+<body>
+  <div id="container">
+    <h2>NowThen Lite</h2>
+
+    <div id="dateNav">
+      <button onclick="changeDay(-1)">◀ 前へ</button>
+      <span id="dateLabel"></span>
+      <button onclick="changeDay(1)">次へ ▶</button>
+    </div>
+
+    <label>■集計範囲：</label>
+    <select id="viewMode" onchange="renderAll()">
+      <option value="day">日別</option>
+      <option value="week">週別</option>
+      <option value="month">月別</option>
+    </select>
+
+    <div id="taskInputRow">
+      <input type="text" id="newTask" placeholder="新しいタスク名">
+      <input type="color" id="taskColor" value="#00ccff">
+      <button onclick="addTask()">追加</button>
+    </div>
+    <div id="taskButtons"></div>
+
+    <h3>■現在のタスク</h3>
+    <div id="currentTask">なし</div>
+    <textarea id="logNote" placeholder="（任意）終了時にメモを残す"></textarea>
+
+    <h3>■合計時間</h3>
+    <div id="summary"></div>
+
+    <h3>■タイムライン</h3>
+    <div id="timelineContainer">
+      <div id="timeAxis"></div>
+      <div id="taskTimeline"></div>
+    </div>
+
+    <h3>■グラフ</h3>
+    <canvas id="barChart"></canvas>
+
+   <h3>■ログ</h3>
+    <div id="log"></div>
+   </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+  // --- 初期変数と要素の取得 ---
+
+  // タスクボタンを表示するエリア
+  const taskButtonsDiv = document.getElementById("taskButtons");
+  // 現在のタスク名と開始時刻の表示エリア
+  const currentTaskDiv = document.getElementById("currentTask");
+  // タイムログの表示エリア
+  const logDiv = document.getElementById("log");
+  //JavaScriptにグラフ描画処理を追加 グローバル変数
+  let barChart = null; // グラフのインスタンスを保持
+  // 現在のタスク名
+  let currentTask = null;
+  // 現在のタスクの開始時刻（ISO形式）
+  let startTime = null;
+  // 登録済みのタスクリストをlocalStorageから取得（なければ空配列）
+  let tasksRaw = JSON.parse(localStorage.getItem("tasks") || "[]");
+  let tasks = tasksRaw.map(t => typeof t === "string" ? { name: t, color: "#999999" } : t);
+  // ログ（開始・終了時間・タスク名）もlocalStorageから取得
+  let logs = JSON.parse(localStorage.getItem("logs") || "[]");
+
+  // --- タスク表示・追加・削除 ---
+
+  // タスクボタンを画面に表示（＋削除ボタン付き）
+  function renderTasks() {
+    taskButtonsDiv.innerHTML = ""; // 一旦クリア
+    tasks.forEach((task, index) => {
+      const wrapper = document.createElement("div");
+      wrapper.className = "task-item";
+
+      const btn = document.createElement("button");
+      btn.textContent = task.name;
+      btn.onclick = () => switchTask(task.name); // ← 名前だけ渡す // 切り替え機能
+
+      const del = document.createElement("button");
+      del.textContent = "❌";
+      del.className = "delete-btn";
+      del.title = "削除";
+      del.onclick = () => deleteTask(index);
+
+      wrapper.appendChild(btn);
+      wrapper.appendChild(del);
+      taskButtonsDiv.appendChild(wrapper);
+    });
+  }
+
+  // タスクを削除して再描画（確認ダイアログあり）
+  function deleteTask(index) {
+    if (confirm(`「${tasks[index]}」を削除しますか？`)) {
+      tasks.splice(index, 1);
+      localStorage.setItem("tasks", JSON.stringify(tasks));
+      renderTasks();
+    }
+  }
+
+  // 新しいタスクを追加（重複チェックあり）
+  function addTask() {
+    const input = document.getElementById("newTask");
+    const colorInput = document.getElementById("taskColor");
+    const name = input.value.trim();
+    const color = colorInput.value;
+
+    if (name && !tasks.some(t => t.name === name)) {
+      tasks.push({ name, color });
+      localStorage.setItem("tasks", JSON.stringify(tasks));
+      renderTasks();
+    }
+    input.value = "";
+  }
+
+
+  // --- タスク切り替え・記録 ---
+
+  // タスクを切り替え → ログ記録 → 表示更新
+  function switchTask(newTask) {
+    const now = new Date();
+
+    // 前のタスクをログに保存
+    if (currentTask) {
+      const noteInput = document.getElementById("logNote");
+      const note = noteInput ? noteInput.value.trim() : "";
+
+      logs.push({
+        task: currentTask,
+        start: startTime,
+        end: now.toISOString(),
+        note: note || "" // メモが空でも空文字として記録
+      });
+      localStorage.setItem("logs", JSON.stringify(logs));
+      if (noteInput) noteInput.value = "";  // メモ欄をリセット
+    }
+
+    // 新しいタスクに切り替え
+    currentTask = newTask;
+    startTime = now.toISOString();
+
+    updateCurrent();
+    renderLog();
+  }
+
+  // 現在のタスクを画面に表示
+  function updateCurrent() {
+    if (currentTask) {
+      const start = new Date(startTime);
+      const now = new Date();
+      const diffMin = Math.floor((now - start) / 60000); // 分単位の差分
+
+      const label = `${currentTask}（${start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}〜）《${diffMin}分経過》`;
+      currentTaskDiv.textContent = label;
+    } else {
+      currentTaskDiv.textContent = "なし";
+    }
+  }
+
+
+  // --- 日付ごとのログと集計 ---
+
+  // 現在の表示対象日（0＝今日、-1＝昨日）
+  let dayOffset = 0;
+
+  // 表示対象の日付をDate型で返す
+  function getTargetDate() {
+    const d = new Date();
+    d.setDate(d.getDate() + dayOffset);
+    return d;
+  }
+
+  // 日付ラベルを表示（例：📅 03/23（土））
+  function renderDateLabel() {
+    const mode = document.getElementById("viewMode").value;
+    const baseDate = getTargetDate();
+    let label = "";
+  
+    if (mode === "day") {
+      label = baseDate.toLocaleDateString("ja-JP", { month: '2-digit', day: '2-digit', weekday: 'short' });
+    } else if (mode === "week") {
+      const start = new Date(baseDate);
+      start.setDate(start.getDate() - start.getDay()); // 週の開始（日曜日）
+  
+      const end = new Date(start);
+      end.setDate(start.getDate() + 6); // 土曜日
+  
+      const startStr = `${start.getMonth() + 1}/${start.getDate()}`;
+      const endStr = `${end.getMonth() + 1}/${end.getDate()}`;
+      label = `${startStr}〜${endStr}（週）`;
+    } else if (mode === "month") {
+      label = `${baseDate.getFullYear()}年${baseDate.getMonth() + 1}月`;
+    }
+  
+    document.getElementById("dateLabel").textContent = `📅 ${label}`;
+  }
+  
+  // 日付を変更（← 前日、→ 次日）
+  function changeDay(delta) {
+    const mode = document.getElementById("viewMode").value;
+    if (mode === "day") {
+      dayOffset += delta;
+    } else if (mode === "week") {
+      dayOffset += delta * 7;
+    } else if (mode === "month") {
+      const current = getTargetDate();
+      current.setMonth(current.getMonth() + delta);
+      const today = new Date();
+      dayOffset = Math.floor((current - today) / (1000 * 60 * 60 * 24));
+    }
+  
+    renderDateLabel();
+    renderLog();
+  }
+
+  // --- ログと合計時間の表示 ---
+
+  // 指定日のログを表示（経過時間付き）
+  function renderLog() {
+    const mode = document.getElementById("viewMode").value;
+    const baseDate = getTargetDate();
+  
+    const logRows = getTargetRangeLogs().map(log => {
+      const s = new Date(log.start);
+      const e = new Date(log.end);
+      const durationMs = e - s;
+      const mins = Math.floor(durationMs / 60000);
+      const hrs = Math.floor(mins / 60);
+      const rem = mins % 60;
+      const durationStr = hrs > 0 ? `${hrs}時間${rem}分` : `${rem}分`;
+      const memo = log.note ? `📓 ${log.note}` : "";
+  
+      const startStr = s.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const endStr = e.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  
+      return `
+        <tr>
+          <td style="width: 80px; white-space: nowrap;">${startStr} - ${endStr}</td>
+          <td style="width: 100px;">（${durationStr}）</td>
+          <td style="width: 100px;">${log.task}</td>
+          <td>${memo}</td>
+        </tr>
+      `;
+    }).join("");
+  
+    logDiv.innerHTML = `
+      <table style="width: 100%; font-family: sans-serif; font-size: 12px; border-collapse: collapse;">
+        ${logRows}
+      </table>
+    `;
+  
+    renderSummary();
+    renderTimeline();
+  }
+
+    
+  //JavaScriptで描画する関数を作成
+  function renderTimeline() {
+    const mode = document.getElementById("viewMode").value;
+    const timelineContainer = document.getElementById("timelineContainer");
+    const container = document.getElementById("taskTimeline");
+    const timeAxis = document.getElementById("timeAxis");
+  
+    // 日別以外ではタイムライン非表示にする
+    if (mode !== "day") {
+      timelineContainer.style.display = "none";  // タイムライン全体を非表示
+      return;
+    } else {
+      timelineContainer.style.display = "flex";  // 表示を復活
+    }
+    
+    const targetDate = getTargetDate().toDateString();
+  
+    // リセット
+    container.innerHTML = "";
+    timeAxis.innerHTML = "";
+  
+    // ▼ 時間目盛り（1時間ごと）
+    for (let h = 0; h < 24; h++) {
+      const label = document.createElement("div");
+      label.style.height = "60px";
+      label.style.fontSize = "12px";
+      label.textContent = `${String(h).padStart(2, "0")}:00`;
+      timeAxis.appendChild(label);
+    }
+  
+    // ▼ ログからブロックを描画（※getTargetRangeLogsで日付一致のみ取得）
+    getTargetRangeLogs().forEach(log => {
+      const s = new Date(log.start);
+      const e = new Date(log.end);
+      
+      if (s.toDateString() !== targetDate) return;
+  
+      const startMin = s.getHours() * 60 + s.getMinutes();
+      const endMin = e.getHours() * 60 + e.getMinutes();
+      const duration = endMin - startMin;
+  
+      const block = document.createElement("div");
+      block.style.position = "absolute";
+      block.style.top = `${startMin}px`;
+      block.style.height = `${duration}px`;
+      block.style.left = "10px";
+      block.style.right = "10px";
+  
+      const taskObj = tasks.find(t => t.name === log.task);
+      const color = taskObj ? taskObj.color : stringToColor(log.task);
+      
+      block.style.backgroundColor = color;
+      block.style.borderRadius = "4px";
+      block.style.padding = "2px 4px";
+      block.style.fontSize = "12px";
+      block.style.color = "#fff";
+      block.textContent = `${log.task}`;
+      container.appendChild(block);
+    });
+  }
+  
+  function renderAll() {
+    renderDateLabel();
+    renderLog();
+  }
+
+  // タスク名から色を生成（安定したランダムカラー）
+  function stringToColor(str) {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      hash = str.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const c = (hash & 0x00FFFFFF).toString(16).toUpperCase();
+    return "#" + "00000".substring(0, 6 - c.length) + c;
+  }
+
+  // 指定日のタスクごとの合計時間を表示
+  function renderSummary() {
+    const summary = {};
+    const targetDate = getTargetDate().toDateString();
+  
+    logs.forEach(log => {
+      const s = new Date(log.start);
+      const e = new Date(log.end);
+      if (s.toDateString() === targetDate) {
+        const mins = Math.floor((e - s) / 60000);
+        summary[log.task] = (summary[log.task] || 0) + mins;
+      }
+    });
+  
+    // ①テキスト表示部分（改行対応）
+    const entries = Object.entries(summary);
+
+    // テーブル形式のHTMLを生成
+    const rows = entries.map(([task, mins]) => {
+      const hrs = Math.floor(mins / 60);
+      const rem = mins % 60;
+      const timeStr = `${hrs > 0 ? `${hrs}時間` : ""}${rem}分`;
+      return `<tr><td style="padding-right: 1em;">${task}</td><td>：</td><td>${timeStr}</td></tr>`;
+    });
+
+    document.getElementById("summary").innerHTML = `
+      <table style="font-family: sans-serif; font-size: 14px;">
+        ${rows.join("")}
+      </table>
+    `;
+  
+    // ② ここから下がChart.js追加部分！
+      const ctx = document.getElementById("barChart").getContext("2d");
+    const labels = Object.keys(summary);
+    const data = Object.values(summary).map(mins => (mins / 60).toFixed(2)); // 時間単位
+  
+    if (barChart) {
+      barChart.destroy();
+    }
+  
+    // タスク名に対応する色を tasks 配列から取得
+    const backgroundColors = labels.map(label => {
+      const t = tasks.find(t => t.name === label);
+      return t ? t.color : "#999999"; // 未登録ならグレー
+    });
+
+    barChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: '作業時間（時間）',
+          data: data,
+          backgroundColor: backgroundColors, // ← 追加！
+          borderWidth: 1
+        }]
+      },
+      options: {
+        scales: {
+          y: {
+            beginAtZero: true,
+            min: 0,
+            max: 5, // ← 最大時間を固定（任意）
+            ticks: {
+              stepSize: 1, // 1時間ごとに目盛り
+              callback: function(value) {
+                return value + "h"; // ラベルを "1h" のように
+              }
+            },
+            title: {
+              display: true,
+              text: '時間'
+            }
+          }
+        }
+      }
+    });
+  }
+  
+  function getTargetRangeLogs() {
+   const mode = document.getElementById("viewMode").value;
+   const today = new Date();
+   today.setDate(today.getDate() + dayOffset);
+   today.setHours(0, 0, 0, 0);
+ 
+   return logs.filter(log => {
+     const s = new Date(log.start);
+     s.setHours(0, 0, 0, 0);
+ 
+     if (mode === "day") {
+       return s.getTime() === today.getTime();
+     } else if (mode === "week") {
+       const startOfWeek = new Date(today);
+       startOfWeek.setDate(today.getDate() - today.getDay());
+       const endOfWeek = new Date(startOfWeek);
+       endOfWeek.setDate(startOfWeek.getDate() + 6);
+       return s >= startOfWeek && s <= endOfWeek;
+     } else if (mode === "month") {
+       return s.getFullYear() === today.getFullYear() && s.getMonth() === today.getMonth();
+     }
+     return false;
+   });
+ }
+
+
+
+  // --- 初期描画処理（ページ読み込み時） ---
+
+  renderTasks();        // タスク一覧を描画
+  renderDateLabel();    // 日付を表示
+  renderLog();          // 当日のログを表示
+  updateCurrent();      // 現在のタスクを表示
+  
+  setInterval(updateCurrent, 60000); // 60秒ごとに更新
+  </script>
+</body>
+</html>
