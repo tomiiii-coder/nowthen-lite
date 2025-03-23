@@ -265,12 +265,13 @@
      <div id="log"></div>
     </div>
    
+  <!-- Chart.jsなど -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  
-  <!-- Firebase SDK（CDN） -->
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js"></script>
 
+  <!-- Firebase (互換版CDN) -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+ 
   <script>
   // Firebase 設定
   const firebaseConfig = {
@@ -282,15 +283,15 @@
     appId: "1:951657127118:web:c629a33504e803a934849f"
   };
 
-  // 初期化
+
+  // ✅ 初期化
   firebase.initializeApp(firebaseConfig);
   const auth = firebase.auth();
-  
-    // 新規登録
+
+  // ✅ 新規登録
   function signup() {
     const email = document.getElementById("email").value;
     const pw = document.getElementById("password").value;
-
     auth.createUserWithEmailAndPassword(email, pw)
       .then(() => {
         document.getElementById("authStatus").textContent = "登録成功！";
@@ -300,28 +301,27 @@
       });
   }
 
-  // ログイン
+  // ✅ ログイン
   function login() {
     const email = document.getElementById("email").value;
-    const pw = document.getElementById("password").value;
-
-    auth.signInWithEmailAndPassword(email, pw)
+    const password = document.getElementById("password").value;
+    auth.signInWithEmailAndPassword(email, password)
       .then(() => {
         document.getElementById("authStatus").textContent = "ログイン成功！";
       })
-      .catch(e => {
-        document.getElementById("authStatus").textContent = "ログイン失敗：" + e.message;
+      .catch(err => {
+        document.getElementById("authStatus").textContent = "ログイン失敗：" + err.message;
       });
   }
-  
-  // ログアウト
+
+  // ✅ ログアウト
   function logout() {
     auth.signOut().then(() => {
       document.getElementById("authStatus").textContent = "ログアウトしました";
     });
   }
 
-  // ログイン状態の監視
+  // ✅ ログイン状態を監視して画面切り替え
   auth.onAuthStateChanged(user => {
     const app = document.getElementById("container");
     const authUI = document.getElementById("authSection");
