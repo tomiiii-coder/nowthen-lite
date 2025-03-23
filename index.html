@@ -220,6 +220,8 @@
     <button onclick="signup()">新規登録</button>
     <p id="authStatus"></p>
   </div>
+  
+  
 
   <div id="container">
     <h2>NowThen Lite</h2>
@@ -265,8 +267,11 @@
    </div>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Firebase Authentication SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js"></script>
+
   
-  <script type="module">
+  <script type="module" >
   // Import the functions you need from the SDKs you need
   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.5.0/firebase-app.js";
   // TODO: Add SDKs for Firebase products that you want to use
@@ -286,7 +291,8 @@
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
   
-    // 新規登録
+  
+  // 新規登録
   window.signup = async function () {
     const email = document.getElementById("email").value;
     const pw = document.getElementById("password").value;
@@ -297,29 +303,46 @@
       document.getElementById("authStatus").textContent = "登録エラー：" + e.message;
     }
   }
+  
+  const auth = firebase.auth();
 
   // ログイン
-  window.login = async function () {
+  function login() {
     const email = document.getElementById("email").value;
-    const pw = document.getElementById("password").value;
-    try {
-      await signInWithEmailAndPassword(auth, email, pw);
-      document.getElementById("authStatus").textContent = "ログイン成功！";
-    } catch (e) {
-      document.getElementById("authStatus").textContent = "ログイン失敗：" + e.message;
+    const password = document.getElementById("password").value;
+    
+    auth.signInWithEmailAndPassword(email, password)
+      .then(user => {
+        document.getElementById("authMessage").textContent = "ログイン成功！";
+      })
+      .catch(err => {
+        document.getElementById("authMessage").textContent = "ログイン失敗：" + err.message;
+      });
     }
-  }
+  
+    // ログアウト処理
+    function logout() {
+      auth.signOut().then(() => {
+        document.getElementById("authMessage").textContent = "ログアウトしました";
+      });
+    }
 
-  // ログイン状態を監視して、ログイン後にmain UIを表示
-  onAuthStateChanged(auth, user => {
+  // ログイン状態の監視
+  auth.onAuthStateChanged(user => {
+    const app = document.getElementById("container");
+    const authUI = document.getElementById("authSection");
     if (user) {
-      document.getElementById("authSection").style.display = "none";
-      document.getElementById("container").style.display = "block";
+      app.style.display = "block";      // アプリ本体を表示
+      authUI.style.display = "none";    // ログインフォームを非表示
     } else {
-      document.getElementById("authSection").style.display = "block";
-      document.getElementById("container").style.display = "none";
+      app.style.display = "none";
+      authUI.style.display = "block";
     }
   });
+  
+
+
+
 
 
   // --- 初期変数と要素の取得 ---
