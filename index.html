@@ -212,18 +212,17 @@
   </style>
 </head>
 <body>
+  <!-- ログインフォーム -->
   <div id="authSection">
-    <h3>ログイン</h3>
-    <input id="email" type="email" placeholder="メールアドレス"><br>
-    <input id="password" type="password" placeholder="パスワード"><br>
+    <input type="email" id="email" placeholder="メールアドレス">
+    <input type="password" id="password" placeholder="パスワード">
     <button onclick="login()">ログイン</button>
     <button onclick="signup()">新規登録</button>
     <p id="authStatus"></p>
   </div>
   
-  
-
-  <div id="container">
+  <!-- アプリ本体 -->
+  <div id="container" style="display: none;">
     <h2>NowThen Lite</h2>
 
     <div id="dateNav">
@@ -262,25 +261,18 @@
     <h3>■グラフ</h3>
     <canvas id="barChart"></canvas>
 
-   <h3>■ログ</h3>
-    <div id="log"></div>
-   </div>
-
+    <h3>■ログ</h3>
+     <div id="log"></div>
+    </div>
+   
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   
-  <!-- Firebase Authentication SDK -->
+  <!-- Firebase SDK（CDN） -->
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js"></script>
-  
-  
-  
-  <script type="module" >
-  // Import the functions you need from the SDKs you need
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.5.0/firebase-app.js";
-  // TODO: Add SDKs for Firebase products that you want to use
-  // https://firebase.google.com/docs/web/setup#available-libraries
 
-  // Your web app's Firebase configuration
+  <script>
+  // Firebase 設定
   const firebaseConfig = {
     apiKey: "AIzaSyDEKYSMzvxW8yl5GVLAK94BUfd_2e5_uIM",
     authDomain: "nowthenlite.firebaseapp.com",
@@ -290,63 +282,61 @@
     appId: "1:951657127118:web:c629a33504e803a934849f"
   };
 
-  // Initialize Firebase
+  // 初期化
   firebase.initializeApp(firebaseConfig);
   const auth = firebase.auth();
   
-  
-  // 新規登録
-  window.signup = async function () {
+    // 新規登録
+  function signup() {
     const email = document.getElementById("email").value;
     const pw = document.getElementById("password").value;
-    try {
-      await createUserWithEmailAndPassword(auth, email, pw);
-      document.getElementById("authStatus").textContent = "登録成功！";
-    } catch (e) {
-      document.getElementById("authStatus").textContent = "登録エラー：" + e.message;
-    }
+
+    auth.createUserWithEmailAndPassword(email, pw)
+      .then(() => {
+        document.getElementById("authStatus").textContent = "登録成功！";
+      })
+      .catch(e => {
+        document.getElementById("authStatus").textContent = "登録エラー：" + e.message;
+      });
   }
-  
-  const auth = firebase.auth();
 
   // ログイン
   function login() {
     const email = document.getElementById("email").value;
-    const password = document.getElementById("password").value;
-    
-    auth.signInWithEmailAndPassword(email, password)
-      .then(user => {
-        document.getElementById("authMessage").textContent = "ログイン成功！";
+    const pw = document.getElementById("password").value;
+
+    auth.signInWithEmailAndPassword(email, pw)
+      .then(() => {
+        document.getElementById("authStatus").textContent = "ログイン成功！";
       })
-      .catch(err => {
-        document.getElementById("authMessage").textContent = "ログイン失敗：" + err.message;
+      .catch(e => {
+        document.getElementById("authStatus").textContent = "ログイン失敗：" + e.message;
       });
-    }
+  }
   
-    // ログアウト処理
-    function logout() {
-      auth.signOut().then(() => {
-        document.getElementById("authMessage").textContent = "ログアウトしました";
-      });
-    }
+  // ログアウト
+  function logout() {
+    auth.signOut().then(() => {
+      document.getElementById("authStatus").textContent = "ログアウトしました";
+    });
+  }
 
   // ログイン状態の監視
   auth.onAuthStateChanged(user => {
     const app = document.getElementById("container");
     const authUI = document.getElementById("authSection");
     if (user) {
-      app.style.display = "block";      // アプリ本体を表示
-      authUI.style.display = "none";    // ログインフォームを非表示
+      app.style.display = "block";
+      authUI.style.display = "none";
     } else {
       app.style.display = "none";
       authUI.style.display = "block";
     }
   });
-  
+  </script>
 
 
-
-
+  <script>
 
   // --- 初期変数と要素の取得 ---
 
