@@ -1,9 +1,15 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta charset="UTF-8">
   <title>NowThen Lite</title>
   <style>
+  
+  #container {
+    display: none; /* 初期状態は非表示 */
+  }
+
     body {
       font-family: 'Helvetica Neue', sans-serif;
       background-color: #f5f5f5;
@@ -144,9 +150,77 @@
       max-width: 600px;
       height: 200px;
     }
+    
+    @media (max-width: 600px) {
+      body {
+        padding: 10px;
+      }
+    
+    #container {
+      padding: 16px;
+      margin: 0;
+    }
+   
+    #dateNav {
+      flex-direction: column;
+      gap: 4px;
+    }
+   
+    #taskInputRow {
+      flex-direction: column;
+      align-items: stretch;
+    }
+   
+    #newTask {
+      width: 100%;
+    }
+   
+    button {
+      font-size: 16px;
+      padding: 10px;
+      width: 100%;
+    }
+   
+    #taskButtons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+   
+    .task-item {
+      width: 100%;
+      justify-content: space-between;
+    }
+   
+    #timelineContainer {
+      height: 720px; /* 高さを半分に */
+    }
+   
+    canvas#barChart {
+      height: 160px;
+    }
+   
+    #summary table, #log table {
+      font-size: 11px;
+    }
+   
+    #logNote {
+      height: 50px;
+    }
+
+    
   </style>
 </head>
 <body>
+  <div id="authSection">
+    <h3>ログイン</h3>
+    <input id="email" type="email" placeholder="メールアドレス"><br>
+    <input id="password" type="password" placeholder="パスワード"><br>
+    <button onclick="login()">ログイン</button>
+    <button onclick="signup()">新規登録</button>
+    <p id="authStatus"></p>
+  </div>
+
   <div id="container">
     <h2>NowThen Lite</h2>
 
@@ -191,7 +265,63 @@
    </div>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script>
+  
+  <script type="module">
+  // Import the functions you need from the SDKs you need
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.5.0/firebase-app.js";
+  // TODO: Add SDKs for Firebase products that you want to use
+  // https://firebase.google.com/docs/web/setup#available-libraries
+
+  // Your web app's Firebase configuration
+  const firebaseConfig = {
+    apiKey: "AIzaSyDEKYSMzvxW8yl5GVLAK94BUfd_2e5_uIM",
+    authDomain: "nowthenlite.firebaseapp.com",
+    projectId: "nowthenlite",
+    storageBucket: "nowthenlite.firebasestorage.app",
+    messagingSenderId: "951657127118",
+    appId: "1:951657127118:web:c629a33504e803a934849f"
+  };
+
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  
+    // 新規登録
+  window.signup = async function () {
+    const email = document.getElementById("email").value;
+    const pw = document.getElementById("password").value;
+    try {
+      await createUserWithEmailAndPassword(auth, email, pw);
+      document.getElementById("authStatus").textContent = "登録成功！";
+    } catch (e) {
+      document.getElementById("authStatus").textContent = "登録エラー：" + e.message;
+    }
+  }
+
+  // ログイン
+  window.login = async function () {
+    const email = document.getElementById("email").value;
+    const pw = document.getElementById("password").value;
+    try {
+      await signInWithEmailAndPassword(auth, email, pw);
+      document.getElementById("authStatus").textContent = "ログイン成功！";
+    } catch (e) {
+      document.getElementById("authStatus").textContent = "ログイン失敗：" + e.message;
+    }
+  }
+
+  // ログイン状態を監視して、ログイン後にmain UIを表示
+  onAuthStateChanged(auth, user => {
+    if (user) {
+      document.getElementById("authSection").style.display = "none";
+      document.getElementById("container").style.display = "block";
+    } else {
+      document.getElementById("authSection").style.display = "block";
+      document.getElementById("container").style.display = "none";
+    }
+  });
+
+
   // --- 初期変数と要素の取得 ---
 
   // タスクボタンを表示するエリア
