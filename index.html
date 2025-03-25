@@ -25,18 +25,26 @@
     }
 
     .task-item {
-      display: inline-flex;
-      align-items: center;
-      margin-right: 8px;
-    }
+  display: flex;
+  align-items: center;
+  margin-bottom: 6px;
+  width: 100%; /* 全体幅を固定 */
+}
 
     .delete-btn {
-      background: none;
-      border: none;
+      background-color: transparent;
+      border: 1px solid transparent;
       color: red;
-      font-weight: bold;
-      cursor: pointer;
+      font-size: 10px;
+      padding: 2px 4px;
       margin-left: 4px;
+      border-radius: 4px;
+      cursor: pointer;
+      line-height: 1;
+    }
+
+    .delete-btn:hover {
+      background-color: #ffe5e5;
     }
 
     #container {
@@ -53,13 +61,14 @@
       justify-content: center;
       align-items: center;
       gap: 12px;
-      margin-bottom: 16px;
-      font-size: 16px;
+      margin-bottom: 10px;
+      font-size: 10px;
     }
 
     #dateLabel {
       font-weight: bold;
-      font-size: 18px;
+      font-size: 20px;
+      align-items: center;
     }
 
     #taskInputRow {
@@ -71,6 +80,7 @@
     }
 
     #newTask {
+      font-size: 10px;
       width: 160px;
       padding: 6px;
     }
@@ -120,19 +130,24 @@
 
     #timelineContainer {
       display: flex;
-      height: 1440px;
+      flex-direction: row; /* ← ここは column にしない！ */
+      height: auto;
       border-top: 1px solid #ccc;
       margin-bottom: 24px;
     }
 
-    #timeAxis {
-      width: 60px;
-      border-right: 1px solid #ccc;
+    #timeAxis div {
+     height: 60px;
+     font-size: 12px;
+     padding: 0 4px;
+     box-sizing: border-box;
     }
 
     #taskTimeline {
       flex: 1;
       position: relative;
+      min-height: 1440px; /* ← タイムラインが上から順に並ぶための固定高さ */
+      background-color: #f9f9f9;
     }
 
     #summary table {
@@ -152,18 +167,18 @@
     }
     
     @media (max-width: 600px) {
-      body {
-        padding: 10px;
+      #timeAxis {
+        flex-shrink: 0;
       }
+
+      #taskTimeline {
+      min-width: 300px; /* スクロール確保用 */
+      }
+   }
     
     #container {
       padding: 16px;
       margin: 0;
-    }
-   
-    #dateNav {
-      flex-direction: column;
-      gap: 4px;
     }
    
     #taskInputRow {
@@ -182,19 +197,19 @@
     }
    
     #taskButtons {
+      max-height: 200px;
       display: flex;
       flex-wrap: wrap;
       gap: 4px;
+      overflow-y: auto;
     }
    
     .task-item {
       width: 100%;
       justify-content: space-between;
     }
-   
-    #timelineContainer {
-      height: 720px; /* 高さを半分に */
-    }
+
+    
    
     canvas#barChart {
       height: 160px;
