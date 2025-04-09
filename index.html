@@ -267,6 +267,9 @@
     </div>
     <div id="taskButtons"></div>
 
+    <h3>■フリーメモ</h3>
+    <textarea id="freeMemo" placeholder="自由にメモを書いてください" style="width:100%; height:100px; font-size:14px; margin-bottom:20px;"></textarea>
+
     <h3>■現在のタスク</h3>
     <div id="currentTask">なし</div>
     <textarea id="logNote" placeholder="（任意）終了時にメモを残す"></textarea>
@@ -282,7 +285,7 @@
 
     <h3>■グラフ</h3>
     <canvas id="barChart"></canvas>
-
+    
     <h3>■ログ</h3>
      <div id="log"></div>
     </div>
@@ -355,6 +358,18 @@
       authUI.style.display = "block";
     }
   });
+
+  // 🔁 起動時に復元 フリーメモ
+window.addEventListener("load", () => {
+  const memo = localStorage.getItem("freeMemo") || "";
+  document.getElementById("freeMemo").value = memo;
+});
+
+// 💾 入力ごとに保存（1文字打つたび） フリーメモ
+document.getElementById("freeMemo").addEventListener("input", (e) => {
+  localStorage.setItem("freeMemo", e.target.value);
+});
+
   </script>
 
 
