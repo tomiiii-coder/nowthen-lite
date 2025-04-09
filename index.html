@@ -518,7 +518,7 @@ document.getElementById("freeMemo").addEventListener("input", (e) => {
   
       const startStr = `${start.getMonth() + 1}/${start.getDate()}`;
       const endStr = `${end.getMonth() + 1}/${end.getDate()}`;
-      label = `${startStr}〜${endStr}（週）`;
+      label = `${startStr}〜${endStr}`;
     } else if (mode === "month") {
       label = `${baseDate.getFullYear()}年${baseDate.getMonth() + 1}月`;
     }
