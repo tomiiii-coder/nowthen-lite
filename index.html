@@ -236,21 +236,21 @@
 <body>
   <!-- ログインフォーム -->
   <div id="authSection">
-    <input type="email" id="email" placeholder="メールアドレス">
-    <input type="password" id="password" placeholder="パスワード">
-    <button onclick="login()">ログイン</button>
-    <button onclick="signup()">新規登録</button>
-    <p id="authStatus"></p>
-  </div>
+      <input type="email" id="email" placeholder="メールアドレス">
+      <input type="password" id="password" placeholder="パスワード">
+      <button id="loginBtn">ログイン</button>
+      <button id="signupBtn">新規登録</button>
+      <p id="authStatus"></p>
+    </div>
   
   <!-- アプリ本体 -->
   <div id="container" style="display: none;">
     <h2>NowThen Lite</h2>
 
     <div id="dateNav">
-      <button onclick="changeDay(-1)">◀ 前へ</button>
+      <button id="prevBtn">◀ 前へ</button>
       <span id="dateLabel"></span>
-      <button onclick="changeDay(1)">次へ ▶</button>
+      <button id="nextBtn">次へ ▶</button>
     </div>
 
     <label>■集計範囲：</label>
@@ -263,11 +263,11 @@
     <div id="taskInputRow">
       <input type="text" id="newTask" placeholder="新しいタスク名">
       <input type="color" id="taskColor" value="#00ccff">
-      <button onclick="addTask()">追加</button>
+      <button id="addTaskBtn">追加</button>
     </div>
-    <div id="taskButtons"></div>
-
+    
     <h3>■現在のタスク</h3>
+    <div id="taskButtons"></div>
     <div id="currentTask">なし</div>
     <textarea id="logNote" placeholder="（任意）終了時にメモを残す"></textarea>
 
@@ -284,7 +284,7 @@
     </div>
 
     <h3>■グラフ</h3>
-    <canvas id="barChart"></canvas>
+    <canvas id="barChart" width="600" height="300"></canvas>
     
     <h3>■ログ</h3>
      <div id="log"></div>
@@ -292,7 +292,6 @@
    
   <!-- Chart.jsなど -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
   <!-- Firebase (互換版CDN) -->
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
@@ -308,13 +307,11 @@
     appId: "1:951657127118:web:c629a33504e803a934849f"
   };
 
-
   // ✅ 初期化
   firebase.initializeApp(firebaseConfig);
   const auth = firebase.auth();
 
-  // ✅ 新規登録
-  function signup() {
+  function signup() {  // ✅ 新規登録
     const email = document.getElementById("email").value;
     const pw = document.getElementById("password").value;
     auth.createUserWithEmailAndPassword(email, pw)
@@ -325,9 +322,7 @@
         document.getElementById("authStatus").textContent = "登録エラー：" + e.message;
       });
   }
-
-  // ✅ ログイン
-  function login() {
+  function login() {    // ✅ ログイン
     const email = document.getElementById("email").value;
     const password = document.getElementById("password").value;
     auth.signInWithEmailAndPassword(email, password)
@@ -338,16 +333,12 @@
         document.getElementById("authStatus").textContent = "ログイン失敗：" + err.message;
       });
   }
-
-  // ✅ ログアウト
-  function logout() {
+  function logout() {    // ✅ ログアウト
     auth.signOut().then(() => {
       document.getElementById("authStatus").textContent = "ログアウトしました";
     });
   }
-
-  // ✅ ログイン状態を監視して画面切り替え
-  auth.onAuthStateChanged(user => {
+  auth.onAuthStateChanged(user => {    // ✅ ログイン状態を監視して画面切り替え
     const app = document.getElementById("container");
     const authUI = document.getElementById("authSection");
     if (user) {
@@ -358,22 +349,25 @@
       authUI.style.display = "block";
     }
   });
-
-  // 🔁 起動時に復元 フリーメモ
-window.addEventListener("load", () => {
+  
+// 🔁 起動時に復元 フリーメモ
+window.addEventListener("DOMContentLoaded", () => {
   const memo = localStorage.getItem("freeMemo") || "";
-  document.getElementById("freeMemo").value = memo;
+  const freeMemoEl = document.getElementById("freeMemo");
+  freeMemoEl.value = memo;
+  freeMemoEl.addEventListener("input", (e) => {
+    localStorage.setItem("freeMemo", e.target.value);
+  });
+
+  // 🔗 各イベントをモダンに結びつける
+  document.getElementById("loginBtn").addEventListener("click", login);
+  document.getElementById("signupBtn").addEventListener("click", signup);
+  document.getElementById("prevBtn").addEventListener("click", () => changeDay(-1));
+  document.getElementById("nextBtn").addEventListener("click", () => changeDay(1));
+  document.getElementById("addTaskBtn").addEventListener("click", addTask);
+  document.getElementById("viewMode").addEventListener("change", renderAll);
 });
 
-// 💾 入力ごとに保存（1文字打つたび） フリーメモ
-document.getElementById("freeMemo").addEventListener("input", (e) => {
-  localStorage.setItem("freeMemo", e.target.value);
-});
-
-  </script>
-
-
-  <script>
 
   // --- 初期変数と要素の取得 ---
 
@@ -393,12 +387,23 @@ document.getElementById("freeMemo").addEventListener("input", (e) => {
   let tasksRaw = JSON.parse(localStorage.getItem("tasks") || "[]");
   let tasks = tasksRaw.map(t => typeof t === "string" ? { name: t, color: "#999999" } : t);
   // ログ（開始・終了時間・タスク名）もlocalStorageから取得
-  let logs = JSON.parse(localStorage.getItem("logs") || "[]");
+  let logsRaw = localStorage.getItem("logs") || "[]";
+  let logs;
 
-  // --- タスク表示・追加・削除 ---
+  try {
+    logs = JSON.parse(logsRaw);
+    if (!Array.isArray(logs)) throw new Error("logsが配列じゃない！");
+  } catch (e) {
+    console.warn("⚠️ logsの読み込みに失敗。リセットします。", e);
+    logs = [];
+    localStorage.removeItem("logs");
+  }
 
-  // タスクボタンを画面に表示（＋削除ボタン付き）
-  function renderTasks() {
+
+  // 現在の表示対象日（0＝今日、-1＝昨日）
+  let dayOffset = 0;
+
+  function renderTasks() {        // タスクボタンを画面に表示（＋削除ボタン付き）
     taskButtonsDiv.innerHTML = ""; // 一旦クリア
     tasks.forEach((task, index) => {
       const wrapper = document.createElement("div");
@@ -420,8 +425,7 @@ document.getElementById("freeMemo").addEventListener("input", (e) => {
     });
   }
 
-  // タスクを削除して再描画（確認ダイアログあり）
-  function deleteTask(index) {
+  function deleteTask(index) {    // タスクを削除して再描画（確認ダイアログあり）
     if (confirm(`「${tasks[index]}」を削除しますか？`)) {
       tasks.splice(index, 1);
       localStorage.setItem("tasks", JSON.stringify(tasks));
@@ -429,53 +433,66 @@ document.getElementById("freeMemo").addEventListener("input", (e) => {
     }
   }
 
-  // 新しいタスクを追加（重複チェックあり）
-  function addTask() {
-    const input = document.getElementById("newTask");
-    const colorInput = document.getElementById("taskColor");
-    const name = input.value.trim();
-    const color = colorInput.value;
+  function addTask() {            // 新しいタスクを追加（重複チェックあり）
+    /*  ポイント：tasks 配列に {name: "勉強", color: "#ff0000"} みたいなオブジェクトを追加して、localStorage に保存！*/
+    const input = document.getElementById("newTask");        // タスク名の入力欄を取得
+    const colorInput = document.getElementById("taskColor"); // 色選択の入力欄を取得
+    const name = input.value.trim();                         // 入力値をトリムして取得
+    const color = colorInput.value;                          // 色コードを取得（例: #00ccff）
 
+  // 入力された名前が空じゃなくて、すでに存在していなければ
     if (name && !tasks.some(t => t.name === name)) {
-      tasks.push({ name, color });
-      localStorage.setItem("tasks", JSON.stringify(tasks));
-      renderTasks();
+      tasks.push({ name, color });                            // タスクを追加（色つきオブジェクト）
+      localStorage.setItem("tasks", JSON.stringify(tasks));     // ローカルに保存
+      renderTasks();                                          // タスク一覧を再描画
     }
-    input.value = "";
+    input.value = "";  // 入力欄をリセット
   }
 
+  window.addEventListener("DOMContentLoaded", () => {
+    const btn = document.getElementById("addTaskBtn");
+    btn.addEventListener("click", addTask);
+    
+    // 🔐 認証関連
+    document.getElementById("loginBtn").addEventListener("click", login);
+    document.getElementById("signupBtn").addEventListener("click", signup);
 
-  // --- タスク切り替え・記録 ---
+    // 📅 日付ナビゲーション
+    document.getElementById("prevBtn").addEventListener("click", () => changeDay(-1));
+    document.getElementById("nextBtn").addEventListener("click", () => changeDay(1));
 
-  // タスクを切り替え → ログ記録 → 表示更新
-  function switchTask(newTask) {
-    const now = new Date();
+    // 📊 集計範囲変更（セレクトボックス）
+    document.getElementById("viewMode").addEventListener("change", renderAll);
+  });
+  
+  function switchTask(newTask) {  // タスクを切り替え → ログ記録 → 表示更新
+  /*  ポイント：切り替えのたびに、直前のタスクの「終了時刻」までを記録して、次のタスクに移行する仕組み！*/
+    const now = new Date(); // 今の時刻を取得
 
-    // 前のタスクをログに保存
+  // 前のタスクがあれば、その作業をログに記録する
     if (currentTask) {
-      const noteInput = document.getElementById("logNote");
-      const note = noteInput ? noteInput.value.trim() : "";
+      const noteInput = document.getElementById("logNote");    // メモ欄を取得
+      const note = noteInput ? noteInput.value.trim() : "";    // メモを取り出す
 
       logs.push({
-        task: currentTask,
-        start: startTime,
-        end: now.toISOString(),
-        note: note || "" // メモが空でも空文字として記録
+        task: currentTask,                  // どのタスクだったか
+        start: startTime,                   // 作業開始時刻（ISO文字列）
+        end: now.toISOString(),             // 作業終了時刻（今の時刻）
+        note: note || ""                    // メモ（空欄でもOK）
       });
-      localStorage.setItem("logs", JSON.stringify(logs));
-      if (noteInput) noteInput.value = "";  // メモ欄をリセット
+      localStorage.setItem("logs", JSON.stringify(logs));      // ローカルに保存
+      if (noteInput) noteInput.value = "";                     // メモ欄をリセット
     }
 
-    // 新しいタスクに切り替え
-    currentTask = newTask;
-    startTime = now.toISOString();
+  // 新しいタスクに切り替え
+    currentTask = newTask;          // 現在のタスクを更新
+    startTime = now.toISOString(); // 開始時刻も更新
 
-    updateCurrent();
-    renderLog();
+    updateCurrent();  // 上の「現在のタスク」表示を更新
+    renderLog();      // ログの再表示（テーブルやグラフ）
   }
 
-  // 現在のタスクを画面に表示
-  function updateCurrent() {
+  function updateCurrent() {      // 現在のタスクを画面に表示
     if (currentTask) {
       const start = new Date(startTime);
       const now = new Date();
@@ -488,21 +505,13 @@ document.getElementById("freeMemo").addEventListener("input", (e) => {
     }
   }
 
-
-  // --- 日付ごとのログと集計 ---
-
-  // 現在の表示対象日（0＝今日、-1＝昨日）
-  let dayOffset = 0;
-
-  // 表示対象の日付をDate型で返す
-  function getTargetDate() {
+  function getTargetDate() {      // 表示対象の日付をDate型で返す
     const d = new Date();
     d.setDate(d.getDate() + dayOffset);
     return d;
   }
 
-  // 日付ラベルを表示（例：📅 03/23（土））
-  function renderDateLabel() {
+  function renderDateLabel() {    // 日付ラベルを表示（例：📅 03/23（土））
     const mode = document.getElementById("viewMode").value;
     const baseDate = getTargetDate();
     let label = "";
@@ -525,9 +534,8 @@ document.getElementById("freeMemo").addEventListener("input", (e) => {
   
     document.getElementById("dateLabel").textContent = `📅 ${label}`;
   }
-  
-  // 日付を変更（← 前日、→ 次日）
-  function changeDay(delta) {
+
+  function changeDay(delta) {     // 日付を変更（← 前日、→ 次日）
     const mode = document.getElementById("viewMode").value;
     if (mode === "day") {
       dayOffset += delta;
@@ -544,10 +552,7 @@ document.getElementById("freeMemo").addEventListener("input", (e) => {
     renderLog();
   }
 
-  // --- ログと合計時間の表示 ---
-
-  // 指定日のログを表示（経過時間付き）
-  function renderLog() {
+  function renderLog() {          // 指定日のログを表示（経過時間付き）
     const mode = document.getElementById("viewMode").value;
     const baseDate = getTargetDate();
   
@@ -584,9 +589,7 @@ document.getElementById("freeMemo").addEventListener("input", (e) => {
     renderTimeline();
   }
 
-    
-  //JavaScriptで描画する関数を作成
-  function renderTimeline() {
+  function renderTimeline() {     //JavaScriptで描画する関数を作成
     const mode = document.getElementById("viewMode").value;
     const timelineContainer = document.getElementById("timelineContainer");
     const container = document.getElementById("taskTimeline");
@@ -645,14 +648,13 @@ document.getElementById("freeMemo").addEventListener("input", (e) => {
       container.appendChild(block);
     });
   }
-  
+
   function renderAll() {
     renderDateLabel();
     renderLog();
   }
 
-  // タスク名から色を生成（安定したランダムカラー）
-  function stringToColor(str) {
+  function stringToColor(str) {   // タスク名から色を生成（安定したランダムカラー）
     let hash = 0;
     for (let i = 0; i < str.length; i++) {
       hash = str.charCodeAt(i) + ((hash << 5) - hash);
@@ -661,8 +663,7 @@ document.getElementById("freeMemo").addEventListener("input", (e) => {
     return "#" + "00000".substring(0, 6 - c.length) + c;
   }
 
-  // 指定日のタスクごとの合計時間を表示
-  function renderSummary() {
+  function renderSummary() {      // 指定日のタスクごとの合計時間を表示
     const summary = {};
     const targetDate = getTargetDate().toDateString();
   
@@ -675,10 +676,10 @@ document.getElementById("freeMemo").addEventListener("input", (e) => {
       }
     });
   
-    // ①テキスト表示部分（改行対応）
+    // ------------------------
+    // ① テキストの合計表示部分
+    // ------------------------
     const entries = Object.entries(summary);
-
-    // テーブル形式のHTMLを生成
     const rows = entries.map(([task, mins]) => {
       const hrs = Math.floor(mins / 60);
       const rem = mins % 60;
@@ -692,33 +693,28 @@ document.getElementById("freeMemo").addEventListener("input", (e) => {
       </table>
     `;
   
-    // ② ここから下がChart.js追加部分！
-      const ctx = document.getElementById("barChart").getContext("2d");
+    // ------------------------
+    // ② グラフ描画部分（Chart.js）
+    // ------------------------
 
-      barChart = new Chart(ctx, {
-  type: 'bar',
-  data: { /* データ */ },
-  options: {
-    responsive: true,       // ← 必須！
-    maintainAspectRatio: false,  // ← 高さをCSSで制御するなら
-    scales: {
-      y: { /* ... */ }
-    }
-  }
-});
-    const labels = Object.keys(summary);
-    const data = Object.values(summary).map(mins => (mins / 60).toFixed(2)); // 時間単位
-  
-    if (barChart) {
+    // グラフ描画前に破棄（初期化）
+    if (barChart !== null && typeof barChart.destroy === "function") {
       barChart.destroy();
+      barChart = null; // ← これがあるとさらに安全！
     }
-  
-    // タスク名に対応する色を tasks 配列から取得
-    const backgroundColors = labels.map(label => {
+    
+    // Canvas のコンテキスト取得（※ここで ctx を定義）
+    const ctx = document.getElementById("barChart").getContext("2d");
+        
+    // データ整形
+      const labels = Object.keys(summary);
+      const data = Object.values(summary).map(mins => (mins / 60).toFixed(2)); // 時間単位
+      const backgroundColors = labels.map(label => {
       const t = tasks.find(t => t.name === label);
-      return t ? t.color : "#999999"; // 未登録ならグレー
+      return t ? t.color : "#999999";
     });
 
+    // グラフ描画（Chart.js）
     barChart = new Chart(ctx, {
       type: 'bar',
       data: {
@@ -726,11 +722,13 @@ document.getElementById("freeMemo").addEventListener("input", (e) => {
         datasets: [{
           label: '作業時間（時間）',
           data: data,
-          backgroundColor: backgroundColors, // ← 追加！
+          backgroundColor: backgroundColors, 
           borderWidth: 1
         }]
       },
       options: {
+        responsive: true,
+        maintainAspectRatio: true, // ← trueにすると自動でいい感じになる
         scales: {
           y: {
             beginAtZero: true,
@@ -738,9 +736,7 @@ document.getElementById("freeMemo").addEventListener("input", (e) => {
             max: 5, // ← 最大時間を固定（任意）
             ticks: {
               stepSize: 1, // 1時間ごとに目盛り
-              callback: function(value) {
-                return value + "h"; // ラベルを "1h" のように
-              }
+              callback: value => `${value}h`  // ラベルを "1h" のように
             },
             title: {
               display: true,
@@ -751,7 +747,7 @@ document.getElementById("freeMemo").addEventListener("input", (e) => {
       }
     });
   }
-  
+
   function getTargetRangeLogs() {
    const mode = document.getElementById("viewMode").value;
    const today = new Date();
@@ -776,8 +772,6 @@ document.getElementById("freeMemo").addEventListener("input", (e) => {
      return false;
    });
  }
-
-
 
   // --- 初期描画処理（ページ読み込み時） ---
 
