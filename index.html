@@ -1,16 +1,15 @@
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta charset="UTF-8">
+<!DOCTYPE html>  
+<html lang="ja"> 
+<head>           
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
+  <meta charset="UTF-8"> 
   <title>NowThen Lite</title>
   <style>
-  
-  #container {
-    display: none; /* 初期状態は非表示 */
-  }
+    #container {
+    display: none; /* ← 最初はアプリ本体を非表示にする（ログインしてから表示） */
+    }
 
-    body {
+    body { /* ← 全体の背景色・余白・フォントの設定 */
       /* display: flex;*/
       /* justify-content: center;*/
       font-family: 'Helvetica Neue', sans-serif;
@@ -19,7 +18,7 @@
       margin: 0;
     }
 
-    button {
+    button { /* ← ボタン全体の見た目（余白・フォントサイズなど） */
       margin: 4px;
       padding: 6px 12px;
       font-size: 14px;
@@ -265,9 +264,9 @@
       <input type="color" id="taskColor" value="#00ccff">
       <button id="addTaskBtn">追加</button>
     </div>
-    
-    <h3>■現在のタスク</h3>
     <div id="taskButtons"></div>
+
+    <h3>■現在のタスク</h3>
     <div id="currentTask">なし</div>
     <textarea id="logNote" placeholder="（任意）終了時にメモを残す"></textarea>
 
@@ -399,10 +398,6 @@ window.addEventListener("DOMContentLoaded", () => {
     localStorage.removeItem("logs");
   }
 
-
-  // 現在の表示対象日（0＝今日、-1＝昨日）
-  let dayOffset = 0;
-
   function renderTasks() {        // タスクボタンを画面に表示（＋削除ボタン付き）
     taskButtonsDiv.innerHTML = ""; // 一旦クリア
     tasks.forEach((task, index) => {
@@ -505,12 +500,6 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  function getTargetDate() {      // 表示対象の日付をDate型で返す
-    const d = new Date();
-    d.setDate(d.getDate() + dayOffset);
-    return d;
-  }
-
   function renderDateLabel() {    // 日付ラベルを表示（例：📅 03/23（土））
     const mode = document.getElementById("viewMode").value;
     const baseDate = getTargetDate();
@@ -535,28 +524,42 @@ window.addEventListener("DOMContentLoaded", () => {
     document.getElementById("dateLabel").textContent = `📅 ${label}`;
   }
 
-  function changeDay(delta) {     // 日付を変更（← 前日、→ 次日）
+  // 現在の表示対象日（0＝今日、-1＝昨日） どの関数からも使えるようにグローバルで宣言
+  let dayOffset = 0;
+
+  function changeDay(delta) {
     const mode = document.getElementById("viewMode").value;
+
     if (mode === "day") {
-      dayOffset += delta;
+      dayOffset += delta; // ✅ 普通に1日ずつ
     } else if (mode === "week") {
-      dayOffset += delta * 7;
+      dayOffset += delta * 7; // ✅ 週は7日ずつ
     } else if (mode === "month") {
-      const current = getTargetDate();
-      current.setMonth(current.getMonth() + delta);
       const today = new Date();
-      dayOffset = Math.floor((current - today) / (1000 * 60 * 60 * 24));
+      const base = new Date(today.getFullYear(), today.getMonth(), today.getDate()); // ローカル0時
+      const moved = new Date(base);
+      moved.setMonth(base.getMonth() + delta);
+
+      const diffDays = Math.floor((moved - base) / (1000 * 60 * 60 * 24)); // ✅ 安全な日数差
+      dayOffset += diffDays;
     }
-  
+
     renderDateLabel();
     renderLog();
+  }
+
+  function getTargetDate() {
+    const now = new Date();
+    const todayLocal = new Date(now.getFullYear(), now.getMonth(), now.getDate()); // ← ローカル0時
+    todayLocal.setDate(todayLocal.getDate() + dayOffset); // ← 確実に1日ずつ進める
+    return todayLocal;
   }
 
   function renderLog() {          // 指定日のログを表示（経過時間付き）
     const mode = document.getElementById("viewMode").value;
     const baseDate = getTargetDate();
-  
-    const logRows = getTargetRangeLogs().map(log => {
+    const logsToShow = getTargetRangeLogs();
+    const logRows = logsToShow.map(log => {
       const s = new Date(log.start);
       const e = new Date(log.end);
       const durationMs = e - s;
@@ -565,10 +568,10 @@ window.addEventListener("DOMContentLoaded", () => {
       const rem = mins % 60;
       const durationStr = hrs > 0 ? `${hrs}時間${rem}分` : `${rem}分`;
       const memo = log.note ? `📓 ${log.note}` : "";
-  
+
       const startStr = s.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       const endStr = e.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  
+
       return `
         <tr>
           <td style="width: 80px; white-space: nowrap;">${startStr} - ${endStr}</td>
@@ -578,13 +581,13 @@ window.addEventListener("DOMContentLoaded", () => {
         </tr>
       `;
     }).join("");
-  
+
     logDiv.innerHTML = `
       <table style="width: 100%; font-family: sans-serif; font-size: 12px; border-collapse: collapse;">
         ${logRows}
       </table>
     `;
-  
+
     renderSummary();
     renderTimeline();
   }
@@ -749,29 +752,35 @@ window.addEventListener("DOMContentLoaded", () => {
   }
 
   function getTargetRangeLogs() {
-   const mode = document.getElementById("viewMode").value;
-   const today = new Date();
-   today.setDate(today.getDate() + dayOffset);
-   today.setHours(0, 0, 0, 0);
- 
-   return logs.filter(log => {
-     const s = new Date(log.start);
-     s.setHours(0, 0, 0, 0);
- 
-     if (mode === "day") {
-       return s.getTime() === today.getTime();
-     } else if (mode === "week") {
-       const startOfWeek = new Date(today);
-       startOfWeek.setDate(today.getDate() - today.getDay());
-       const endOfWeek = new Date(startOfWeek);
-       endOfWeek.setDate(startOfWeek.getDate() + 6);
-       return s >= startOfWeek && s <= endOfWeek;
-     } else if (mode === "month") {
-       return s.getFullYear() === today.getFullYear() && s.getMonth() === today.getMonth();
-     }
-     return false;
-   });
- }
+    const mode = document.getElementById("viewMode").value;
+    const baseDate = getTargetDate();
+    baseDate.setHours(0, 0, 0, 0); // ← ローカルの日付に固定
+
+    return logs.filter(log => {
+      const s = new Date(log.start);
+      const logDate = new Date(s.getFullYear(), s.getMonth(), s.getDate()); // ← ローカル日付に変換
+
+      if (mode === "day") {
+        return logDate.getTime() === baseDate.getTime();
+
+      } else if (mode === "week") {
+        const startOfWeek = new Date(baseDate);
+        startOfWeek.setDate(baseDate.getDate() - baseDate.getDay());
+        const endOfWeek = new Date(startOfWeek);
+        endOfWeek.setDate(startOfWeek.getDate() + 6);
+
+        return logDate >= startOfWeek && logDate <= endOfWeek;
+  
+      } else if (mode === "month") {
+        return (
+          s.getFullYear() === baseDate.getFullYear() &&
+          s.getMonth() === baseDate.getMonth()
+        );
+      }
+
+      return false;
+    });
+  }
 
   // --- 初期描画処理（ページ読み込み時） ---
 
