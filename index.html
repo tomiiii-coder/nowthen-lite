@@ -229,6 +229,47 @@
       height: 50px;
     }
 
+    #routineList {
+      max-width: 400px;
+      margin: 20px auto;
+      font-family: sans-serif;
+      background: #fff;
+      padding: 16px;
+      border-radius: 8px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+
+    #routineForm label {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .deleteBtn {
+      background: none;
+      border: none;
+      color: red;
+      font-weight: bold;
+      cursor: pointer;
+      margin-left: 8px;
+    }
+
+    #completionRate {
+      font-weight: bold;
+      color: #007bff;
+    }
+
+    input[type="text"] {
+      width: 70%;
+      padding: 6px;
+    }
+
+    button {
+      padding: 6px 12px;
+    }
+
+
     
   </style>
 </head>
@@ -269,6 +310,16 @@
     <h3>■現在のタスク</h3>
     <div id="currentTask">なし</div>
     <textarea id="logNote" placeholder="（任意）終了時にメモを残す"></textarea>
+
+    <div id="routineList">
+      <h3>■ルーティン</h3>
+      <div style="margin-top: 20px;">
+        <input type="text" id="newRoutineInput" placeholder="新しい習慣を入力" />
+        <button id="addRoutineBtn">追加</button>
+      </div>
+      <form id="routineForm"></form>
+      <p id="completionRate">達成率: 0%</p>
+    </div>
 
     <h3>■フリーメモ</h3>
     <textarea id="freeMemo" placeholder="自由にメモを書いてください" style="width:100%; height:100px; font-size:14px; margin-bottom:20px;"></textarea>
@@ -783,6 +834,77 @@ window.addEventListener("DOMContentLoaded", () => {
       return false;
     });
   }
+
+  let routines = JSON.parse(localStorage.getItem("routines") || "[]");
+
+  function saveRoutines() {
+    localStorage.setItem("routines", JSON.stringify(routines));
+  }
+
+  function renderRoutines() {
+    const form = document.getElementById("routineForm");
+    form.innerHTML = "";
+
+    routines.forEach((routine, index) => {
+      const wrapper = document.createElement("div");
+      wrapper.className = "task-item"; // スタイル統一！
+
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.checked = routine.done;
+      checkbox.dataset.index = index;
+      checkbox.addEventListener("change", () => {
+        routines[index].done = checkbox.checked;
+        updateCompletionRate();
+        saveRoutines();
+      });
+
+      const label = document.createElement("span");
+      label.textContent = routine.name;
+      label.style.marginLeft = "8px";
+
+      const delBtn = document.createElement("button");
+      delBtn.textContent = "❌";
+      delBtn.className = "delete-btn";
+      delBtn.title = "削除";
+      delBtn.dataset.delete = index;
+      delBtn.addEventListener("click", () => {
+        routines.splice(index, 1);
+        renderRoutines();
+      });
+
+      wrapper.appendChild(checkbox);
+      wrapper.appendChild(label);
+      wrapper.appendChild(delBtn);
+
+      form.appendChild(wrapper);
+    });
+
+    updateCompletionRate();
+    saveRoutines();
+  }
+
+  // ✅ 達成率更新
+  function updateCompletionRate() {
+    const total = routines.length;
+    const done = routines.filter(r => r.done).length;
+    const rate = total > 0 ? Math.round((done / total) * 100) : 0;
+    document.getElementById("completionRate").textContent = `達成率: ${rate}%`;
+  }
+
+  // ✅ 習慣の追加
+  document.getElementById("addRoutineBtn").addEventListener("click", () => {
+    const input = document.getElementById("newRoutineInput");
+    const name = input.value.trim();
+    if (name) {
+      routines.push({ name, done: false });
+      input.value = "";
+      renderRoutines();
+    }
+  });
+
+  window.addEventListener("DOMContentLoaded", renderRoutines);
+
 
   // --- 初期描画処理（ページ読み込み時） ---
 
